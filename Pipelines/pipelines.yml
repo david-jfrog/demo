@@ -1,0 +1,308 @@
+pipelines:
+  - name: pipeline_app_demo
+    steps:
+      - name: bld_backend_demo
+        type: MvnBuild
+        configuration:
+          runtime:
+            type: image
+            image:
+              custom:
+                name: drydock/u18java
+                tag: master
+          sourceLocation: Pipelines/3-steps-pipeline/java-backend-service
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: demo_gitRepo
+          integrations:
+            - name: ArtifactoryHA
+        execution:
+          onStart:
+            - sed -ie 's/Default-Server/ArtifactoryHA/g' $res_demo_gitRepo_resourcePath/Pipelines/3-steps-pipeline/java-backend-service/mvn-art-config
+      - name: bld_frontend
+        type: NpmBuild
+        configuration:
+          npmArgs: --no-progress --no-audit
+          sourceLocation: Pipelines/3-steps-pipeline/npm-frontend-service
+          repositoryName: npm
+          inputResources:
+            - name: demo_gitRepo
+          integrations:
+            - name: ArtifactoryHA
+      - name: publish_frontend_demo
+        type: NpmPublish
+        configuration:
+          repositoryName: npm-dev-local
+          inputSteps:
+            - name: bld_frontend
+          integrations:
+            - name: ArtifactoryHA
+        execution:
+          onStart:
+            - export inputNpmBuildStepName="bld_frontend"
+      - name: buildDockerApp
+        type: DockerBuild
+        configuration:
+          #affinityGroup: fmkGroup
+          dockerFileLocation: Pipelines/3-steps-pipeline
+          dockerFileName: Dockerfile
+          dockerImageName: docker.artifactory-cluster.soleng-us.jfrog.team/pipeline_app_demo
+          dockerImageTag: $run_number
+          integrations:
+            - name: ArtifactoryHA
+          inputResources:
+            - name: demo_gitRepo
+          inputSteps:
+            - name: bld_backend_demo
+            - name: publish_frontend_demo
+      - name: pushDockerApp
+        type: DockerPush
+        configuration:
+          #affinityGroup: fmkGroup
+          targetRepository: docker-dev-local
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: ArtifactoryHA
+          inputSteps:
+            - name: buildDockerApp
+          outputResources:
+            - name: dockerBuildInfo
+            #- name: XrayScan
+            #  type: XrayScan
+            #  configuration:
+            #inherits from bash
+      #    inputResources:
+      #      - name: dockerBuildInfo
+      #        trigger: true
+      #    outputResources:
+      #      - name: dockerBuildInfoScaned
+      #    waitUntilFinish: true
+      - name: promoteDockerApp
+        type: PromoteBuild
+        configuration:
+          #affinityGroup: fmkGroup
+          targetRepository: docker-prod-local
+          integrations:
+            - name: ArtifactoryHA
+          inputSteps:
+            - name:         pushDockerApp  # required
+          inputResources:
+            - name:         dockerBuildInfo     # optional
+              trigger: false
+          #inputResources:
+          #  - name: dockerBuildInfo #dockerAppBuildInfoScaned
+          outputResources:
+            - name: dockerPromotedBuildInfo
+#  - name: demo_seven_steps_pipeline
+#    steps:
+#      - name: step1_pipeline_buildWithGradle
+#        type: GradleBuild
+#        configuration:
+#          runtime:
+#            type: image
+#            image:
+#              custom:
+#                name: drydock/u18java
+#                tag: master
+#          gradleCommand: clean artifactoryPublish -b build.gradle
+#          sourceLocation: Pipelines/7-steps-pipeline/gradle-example
+#          configFileLocation: .
+#          configFileName: gradle-art-config
+#          forceXrayScan: false
+#          autoPublishBuildInfo: true
+#          inputResources:
+#            - name: demo_gitRepo
+#          outputResources:
+#            - name: gradleBuildInfo
+#          integrations:
+#            - name: ArtifactoryHA
+#        execution:
+#          onStart:
+#            - sed -ie 's/Default-Server/ArtifactoryHA/g' $res_demo_gitRepo_resourcePath/Pipelines/7-steps-pipeline/gradle-example/gradle-art-config
+#      - name: promoteJavaBuild
+#        type: PromoteBuild
+#        configuration:
+#          targetRepository: gradle-release-local
+#          includeDependencies: false
+#          inputResources:
+#            - name: gradleBuildInfo
+#          outputResources:
+#            - name: gradleBuildInfoPromoted
+#      - name: step2_pipeline_buildUIWithNpm
+#        type: NpmBuild
+#        configuration:
+#          npmArgs: --no-progress --no-audit
+#          sourceLocation: Pipelines/7-steps-pipeline/create-ui-package
+#          repositoryName: npm
+#          inputResources:
+#            - name: demo_gitRepo
+#          integrations:
+#            - name: ArtifactoryHA
+#      - name: publishNpmBuild
+#        type: NpmPublish
+#        configuration:
+#          repositoryName: npm-dev-local
+#          inputSteps:
+#            - name: step2_pipeline_buildUIWithNpm
+#          integrations:
+#            - name: ArtifactoryHA
+#      - name: publishNpmBuildInfo
+#        type: PublishBuildInfo
+#        configuration:
+#          inputSteps:
+#            - name: publishNpmBuild
+#            #integrations:
+#            # - name: ArtifactoryHA
+#          outputResources:
+#            - name: NpmBuildInfo
+#      - name: promoteNpmBuild
+#        type: PromoteBuild
+#        configuration:
+#          targetRepository: npm-release-local
+#          integrations:
+#            - name: ArtifactoryHA
+#          inputResources:
+#            - name: NpmBuildInfo
+#          outputResources:
+#            - name: NpmBuildInfoPromoted
+#      - name: step3_pipeline_buildDockerFramework
+#        type: DockerBuild
+#        configuration:
+#          affinityGroup: fmkGroup
+#          dockerFileLocation: Pipelines/7-steps-pipeline/docker-framework/
+#          dockerFileName: Dockerfile
+#          dockerImageName: docker.artifactory-cluster.soleng-us.jfrog.team/jfrog-docker-framework
+#          dockerImageTag: $run_number
+#          integrations:
+#            - name: ArtifactoryHA
+#          inputResources:
+#            - name: demo_gitRepo
+#            - name: frameworkGenericFileSpec
+#        execution:
+#          onStart:
+#            - echo "Preparing for work"
+#            - >-
+#              sed -ie 's#docker.artifactory/##g'
+#              $res_demo_gitRepo_resourcePath/Pipelines/7-steps-pipeline/docker-framework/Dockerfile
+#          onSuccess:
+#            - echo "Job well done!"
+#          onFailure:
+#            - echo "You Lose"
+#          onComplete:
+#            - echo "Leave it as you found it. Let's clean it"
+#      - name: pushDockerFramework
+#        type: DockerPush
+#        configuration:
+#          affinityGroup: fmkGroup
+#          targetRepository: docker-dev-local
+#          forceXrayScan: false
+#          autoPublishBuildInfo: true
+#          integrations:
+#            - name: ArtifactoryHA
+#          inputSteps:
+#            - name: step3_pipeline_buildDockerFramework
+#          outputResources:
+#            - name: dockerFrameworkBuildInfo
+#      - name: promoteFrameworkBuild
+#        type: PromoteBuild
+#        configuration:
+#          affinityGroup: fmkGroup
+#          targetRepository: docker-prod-local
+#          inputResources:
+#            - name: dockerFrameworkBuildInfo
+#          outputResources:
+#            - name: dockerFrameworkBuildInfoPromoted
+#      - name: step4_pipeline_buildDockerApp
+#        type: DockerBuild
+#        configuration:
+#          affinityGroup: bldGroup
+#          dockerFileLocation: Pipelines/7-steps-pipeline/docker-app/
+#          dockerFileName: Dockerfile
+#          dockerImageName: docker.artifactory-cluster.soleng-us.jfrog.team/jfrog-docker-app
+#          dockerImageTag: $run_number
+#          integrations:
+#            - name: ArtifactoryHA
+#          inputResources:
+#            - name: demo_gitRepo
+#            - name: javaAppFileSpec
+#            - name: dockerFrameworkBuildInfoPromoted
+#            - name: NpmBuildInfoPromoted
+#            - name: gradleBuildInfoPromoted
+#          inputSteps:
+#            - name: promoteFrameworkBuild
+#            - name: promoteJavaBuild
+#            - name: promoteNpmBuild
+#        execution:
+#          onStart:
+#            - echo "Preparing for work"
+#            - curl $int_ArtifactoryHA_url/api/system/ping
+#            - >-
+#              sed -ie
+#              's#docker.artifactory/#docker.artifactory-cluster.soleng-us.jfrog.team/#g'
+#              $res_demo_gitRepo_resourcePath/Pipelines/7-steps-pipeline/docker-app/Dockerfile
+#            - >-
+#              sed -ie
+#              's#docker-framework:latest#jfrog-docker-framework:'"$res_dockerFrameworkBuildInfoPromoted_buildNumber"'#g'
+#              $res_demo_gitRepo_resourcePath/Pipelines/7-steps-pipeline/docker-app/Dockerfile
+#          onSuccess:
+#            - echo "Job well done!"
+#          onFailure:
+#            - echo "You Lose"
+#          onComplete:
+#            - echo "Leave it as you found it. Let's clean it"
+#      - name: pushDockerApp
+#        type: DockerPush
+#        configuration:
+#          affinityGroup: bldGroup
+#          targetRepository: docker-dev-local
+#          forceXrayScan: false
+#          autoPublishBuildInfo: true
+#          integrations:
+#            - name: ArtifactoryHA
+#          inputSteps:
+#            - name: step4_pipeline_buildDockerApp
+#          outputResources:
+#            - name: dockerApplBuildInfo
+#      - name: promoteAppBuild
+#        type: PromoteBuild
+#        configuration:
+#          affinityGroup: bldGroup
+#          targetRepository: docker-prod-local
+#          inputResources:
+#            - name: dockerApplBuildInfo
+#          outputResources:
+#            - name: dockerApplBuildInfoPromoted
+#  - name: demo_release_pipeline
+#    steps:
+#      - name: bundle
+#        type: CreateReleaseBundle
+#        configuration:
+#          releaseBundleName: demo-app
+#          releaseBundleVersion: v1.0.$run_number
+#          dryRun: false
+#          sign: false
+#          description: "some random test description"
+#          inputResources:
+#            #- name: dockerApplBuildInfoPromoted
+#            - name: getDockerAppImage
+#          #inputSteps:
+#          #  - name: pushDockerApp
+#          outputResources:
+#            - name: releaseBundle_demo
+#      - name: sign_demo
+#        type: SignReleaseBundle
+#        configuration:
+#          inputResources:
+#            - name: releaseBundle_demo
+#          outputResources:
+#            - name: signedBundle_demo
+#      - name: distribute
+#        type: DistributeReleaseBundle
+#        configuration:
+#          dryRun: false
+#          inputResources:
+#            - name: signedBundle_demo
+#            - name: distributionRules_demo

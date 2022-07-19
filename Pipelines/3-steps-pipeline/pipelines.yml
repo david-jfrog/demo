@@ -1,0 +1,93 @@
+#pipelines:
+#  - name: pipeline_app_demo
+#    steps:
+#      - name: bld_backend_demo
+#        type: MvnBuild
+#        configuration:
+#          runtime:
+#            type: image
+#            image:
+#              custom:
+#                name: drydock/u18java
+#                tag: master
+#          sourceLocation: Pipelines/3-steps-pipeline/java-backend-service
+#          mvnCommand: clean install -ntp
+#          configFileLocation: .
+#          configFileName: mvn-art-config
+#          inputResources:
+#            - name: demo_backend_gitRepo
+#          integrations:
+#            - name: ArtifactoryStandalone
+#        execution:
+#          onStart:
+#            - sed -ie 's/Default-Server/ArtifactoryStandalone/g' $res_demo_backend_gitRepo_resourcePath/Pipelines/3-steps-pipeline/java-backend-service/mvn-art-config
+#      - name: bld_frontend
+#        type: NpmBuild
+#        configuration:
+#          npmArgs: --no-progress --no-audit
+#          sourceLocation: Pipelines/3-steps-pipeline/npm-frontend-service
+#          repositoryName: npm
+#          inputResources:
+#            - name: demo_frontend_gitRepo
+#          integrations:
+#            - name: ArtifactoryStandalone
+#      - name: publish_frontend_demo
+#        type: NpmPublish
+#        configuration:
+#          repositoryName: npm-dev-local
+#          inputSteps:
+#            - name: bld_frontend
+#          integrations:
+#            - name: ArtifactoryStandalone
+#        execution:
+#          onStart:
+#            - export inputNpmBuildStepName="bld_frontend"
+#      - name: buildDockerApp
+#        type: DockerBuild
+#        configuration:
+#          affinityGroup: fmkGroup
+#          dockerFileLocation: Pipelines/3-steps-pipeline
+#          dockerFileName: Dockerfile
+#          dockerImageName: docker.artifactory-standalone.soleng-us.jfrog.team/pipeline_app_demo
+#          dockerImageTag: $run_number
+#          integrations:
+#            - name: ArtifactoryStandalone
+#          inputResources:
+#            - name: demo_backend_gitRepo
+#          inputSteps:
+#            - name: bld_backend_demo
+#            - name: publish_frontend_demo
+#      - name: pushDockerApp
+#        type: DockerPush
+#        configuration:
+#          affinityGroup: fmkGroup
+#          targetRepository: docker-dev-local
+#          forceXrayScan: false
+#          autoPublishBuildInfo: true
+#          integrations:
+#            - name: ArtifactoryStandalone
+#          inputSteps:
+#            - name: buildDockerApp
+#          outputResources:
+#            - name: dockerBuildInfo
+#            #- name: XrayScan
+#            #  type: XrayScan
+#            #  configuration:
+#            #inherits from bash
+#      #    inputResources:
+#      #      - name: dockerBuildInfo
+#      #        trigger: true
+#      #    outputResources:
+#      #      - name: dockerBuildInfoScaned
+#      #    waitUntilFinish: true
+#      - name: promoteDockerApp
+#        type: PromoteBuild
+#        configuration:
+#          affinityGroup: fmkGroup
+#          targetRepository: docker-prod-local
+#          integrations:
+#            - name: ArtifactoryStandalone
+#          inputResources:
+#            - name: dockerBuildInfo #dockerAppBuildInfoScaned
+#          outputResources:
+#            - name: dockerPromotedBuildInfo

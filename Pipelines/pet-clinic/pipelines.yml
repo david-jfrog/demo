@@ -1,0 +1,672 @@
+resources:
+  - name: PetClinicProjectGitRepo
+    type: GitRepo
+    configuration:
+      gitProvider: Github_SolEng
+      path: jfrog/SolEngDemo
+      branches:
+        include: pet-clinic-project
+  - name: ConfigServerDockerImage
+    type: Image
+    configuration:
+      registry: Artifactory_Amsterdam
+      sourceRepository: docker
+      imageName: docker.artifactory-unified-ha.soleng-us.jfrog.team/pet_clinic_config_server_docker_image
+      imageTag: '${run_number}'
+      autoPull: true
+  - name: ConfigServerBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: DiscoveryServerDockerImage
+    type: Image
+    configuration:
+      registry: Artifactory_Amsterdam
+      sourceRepository: docker
+      imageName: docker.artifactory-unified-ha.soleng-us.jfrog.team/pet_clinic_discovery_server_docker_image
+      imageTag: '${run_number}'
+      autoPull: true
+  - name: DiscoveryServerBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: CustomerServiceDockerImage
+    type: Image
+    configuration:
+      registry: Artifactory_Amsterdam
+      sourceRepository: docker
+      imageName: docker.artifactory-unified-ha.soleng-us.jfrog.team/pet_clinic_customer_service_docker_image
+      imageTag: '${run_number}'
+      autoPull: true
+  - name: CustomerServiceBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: VetsServiceDockerImage
+    type: Image
+    configuration:
+      registry: Artifactory_Amsterdam
+      sourceRepository: docker
+      imageName: docker.artifactory-unified-ha.soleng-us.jfrog.team/pet_clinic_vets_service_docker_image
+      imageTag: '${run_number}'
+      autoPull: true
+  - name: VetsServiceBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: VisitsServiceDockerImage
+    type: Image
+    configuration:
+      registry: Artifactory_Amsterdam
+      sourceRepository: docker
+      imageName: docker.artifactory-unified-ha.soleng-us.jfrog.team/pet_clinic_visits_service_docker_image
+      imageTag: '${run_number}'
+      autoPull: true
+  - name: VisitsServiceBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: UIServiceDockerImage
+    type: Image
+    configuration:
+      registry: Artifactory_Amsterdam
+      sourceRepository: docker
+      imageName: docker.artifactory-unified-ha.soleng-us.jfrog.team/pet_clinic_ui_service_docker_image
+      imageTag: '${run_number}'
+      autoPull: true
+  - name: UIServiceBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: PetClinicHelmChart
+    type: HelmChart
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      repository: helm-local
+      chart: pet-clinic
+      version: '0.1.${run_number}'
+  - name: PetClinicHelmBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+  - name: PetClinicPromotedHelmChart
+    type: HelmChart
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      repository: helm-prod-local
+      chart: pet-clinic
+      version: '0.1.${run_number}'
+  - name: PetClinicPromotedHelmBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: Artifactory_Amsterdam
+      buildName: SampleApp
+      buildNumber: 1
+pipelines:
+  - name: pet_clinic_config_server
+    configuration:
+      environmentVariables:
+        readOnly:
+           my_env_var: '1.0.$run_number'
+           ArtIP: $(echo ${int_Artifactory_Amsterdam_url}|awk -F '/' '{print $3}'|awk -F ':' '{print $1}')
+    steps:
+      - name: bld_config_server
+        type: MvnBuild
+        configuration:
+          sourceLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-config-server
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          integrations:
+            - name: Artifactory_Amsterdam
+          runtime:
+            type: image
+            image:
+              auto:
+                language: java
+                versions:
+                  - "11"
+        execution:
+          onStart:
+            - javac -version
+            - mvn --version
+            #- add_pipeline_variables previous_backend_ver=${my_env_var}
+            - sed -ie 's/Default-Server/Artifactory_Amsterdam/g' $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-config-server/mvn-art-config
+            #- sed -ie "s/2.3.1/$my_env_var/g" $res_PetClinicProjectGitRepo_resourcePath/spring-petclinic-customers-service/pom.xml
+          onComplete:
+            - echo $run_var
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id" 
+      - name: bld_config_server_docker_image
+        type: DockerBuild
+        configuration:
+          affinityGroup: bldGroup
+          dockerFileLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-config-server
+          dockerFileName: Dockerfile
+          dockerImageName: docker.${ArtIP}/pet_clinic_config_server_docker_image
+          dockerImageTag: '${run_number}'
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          outputResources:
+            - name: ConfigServerDockerImage
+          inputSteps:
+            - name: bld_config_server
+        execution:
+          onStart:
+            - sed -i "s/docker.artifactory/docker.${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-config-server/Dockerfile
+            - sed -i "s/artifactory-unified.soleng-us.jfrog.team/${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-config-server/Dockerfile
+            #- sed -i "s/1.0.0/$previous_backend_ver/g" $res_PetClinicProjectGitRepo_resourcePath/Dockerfile
+          onComplete:
+            - echo $step_env_var2
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: push_config_server_docker_image
+        type: DockerPush
+        configuration:
+          affinityGroup: bldGroup
+          targetRepository: docker
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputSteps:
+            - name: bld_config_server_docker_image
+          outputResources:
+            - name: ConfigServerBuildInfo
+  - name: pet_clinic_discovery_server
+    configuration:
+      environmentVariables:
+        readOnly:
+           my_env_var: '1.0.$run_number'
+           ArtIP: $(echo ${int_Artifactory_Amsterdam_url}|awk -F '/' '{print $3}'|awk -F ':' '{print $1}')
+    steps:
+      - name: bld_discovery_server
+        type: MvnBuild
+        configuration:
+          sourceLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-discovery-server
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          integrations:
+            - name: Artifactory_Amsterdam
+          runtime:
+            type: image
+            image:
+              auto:
+                language: java
+                versions:
+                  - "11"
+        execution:
+          onStart:
+            - javac -version
+            - mvn --version
+            #- add_pipeline_variables previous_backend_ver=${my_env_var}
+            - sed -ie 's/Default-Server/Artifactory_Amsterdam/g' $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-discovery-server/mvn-art-config
+            #- sed -ie "s/2.3.1/$my_env_var/g" $res_PetClinicProjectGitRepo_resourcePath/spring-petclinic-customers-service/pom.xml
+          onComplete:
+            - echo $run_var
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: bld_discovery_server_docker_image
+        type: DockerBuild
+        configuration:
+          affinityGroup: bldGroup
+          dockerFileLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-discovery-server
+          dockerFileName: Dockerfile
+          dockerImageName: docker.${ArtIP}/pet_clinic_discovery_server_docker_image
+          dockerImageTag: '${run_number}'
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          outputResources:
+            - name: DiscoveryServerDockerImage
+          inputSteps:
+            - name: bld_discovery_server
+        execution:
+          onStart:
+            - sed -i "s/docker.artifactory/docker.${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-discovery-server/Dockerfile
+            - sed -i "s/artifactory-unified.soleng-us.jfrog.team/${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-discovery-server/Dockerfile
+            #- sed -i "s/1.0.0/$previous_backend_ver/g" $res_PetClinicProjectGitRepo_resourcePath/Dockerfile
+          onComplete:
+            - echo $step_env_var2
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: push_discovery_server_docker_image
+        type: DockerPush
+        configuration:
+          affinityGroup: bldGroup
+          targetRepository: docker
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputSteps:
+            - name: bld_discovery_server_docker_image
+          outputResources:
+            - name: DiscoveryServerBuildInfo
+  - name: pet_clinic_customer_service
+    configuration:
+      environmentVariables:
+        readOnly:
+           my_env_var: '1.0.$run_number'
+           ArtIP: $(echo ${int_Artifactory_Amsterdam_url}|awk -F '/' '{print $3}'|awk -F ':' '{print $1}')
+    steps:
+      - name: bld_customer_service
+        type: MvnBuild
+        configuration:
+          sourceLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-customers-service
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          integrations:
+            - name: Artifactory_Amsterdam
+          runtime:
+            type: image
+            image:
+              auto:
+                language: java
+                versions:
+                  - "11"
+        execution:
+          onStart:
+            - javac -version
+            - mvn --version
+            #- add_pipeline_variables previous_backend_ver=${my_env_var}
+            - sed -ie 's/Default-Server/Artifactory_Amsterdam/g' $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-customers-service/mvn-art-config
+            #- sed -ie "s/2.3.1/$my_env_var/g" $res_PetClinicProjectGitRepo_resourcePath/spring-petclinic-customers-service/pom.xml
+          onComplete:
+            - echo $run_var
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: bld_customer_service_docker_image
+        type: DockerBuild
+        configuration:
+          affinityGroup: bldGroup
+          dockerFileLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-customers-service
+          dockerFileName: Dockerfile
+          dockerImageName: docker.${ArtIP}/pet_clinic_customer_service_docker_image
+          dockerImageTag: '${run_number}'
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+            - name: ConfigServerBuildInfo
+            - name: DiscoveryServerBuildInfo
+          outputResources:
+            - name: CustomerServiceDockerImage
+          inputSteps:
+            - name: bld_customer_service
+        execution:
+          onStart:
+            - sed -i "s/docker.artifactory/docker.${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-customers-service/Dockerfile
+            - sed -i "s/artifactory-unified.soleng-us.jfrog.team/${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-customers-service/Dockerfile
+            #- sed -i "s/1.0.0/$previous_backend_ver/g" $res_PetClinicProjectGitRepo_resourcePath/Dockerfile
+          onComplete:
+            - echo $step_env_var2
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: push_customer_service_docker_image
+        type: DockerPush
+        configuration:
+          affinityGroup: bldGroup
+          targetRepository: docker
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputSteps:
+            - name: bld_customer_service_docker_image
+          outputResources:
+            - name: CustomerServiceBuildInfo
+  - name: pet_clinic_visits_service
+    configuration:
+      environmentVariables:
+        readOnly:
+           my_env_var: '1.0.$run_number'
+           ArtIP: $(echo ${int_Artifactory_Amsterdam_url}|awk -F '/' '{print $3}'|awk -F ':' '{print $1}')
+    steps:
+      - name: bld_visits_service
+        type: MvnBuild
+        configuration:
+          sourceLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-visits-service
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          integrations:
+            - name: Artifactory_Amsterdam
+          runtime:
+            type: image
+            image:
+              auto:
+                language: java
+                versions:
+                  - "11"
+        execution:
+          onStart:
+            - javac -version
+            - mvn --version
+            #- add_pipeline_variables previous_backend_ver=${my_env_var}
+            - sed -ie 's/Default-Server/Artifactory_Amsterdam/g' $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-visits-service/mvn-art-config
+            #- sed -ie "s/2.3.1/$my_env_var/g" $res_PetClinicProjectGitRepo_resourcePath/spring-petclinic-customers-service/pom.xml
+          onComplete:
+            - echo $run_var
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: bld_visits_service_docker_image
+        type: DockerBuild
+        configuration:
+          affinityGroup: bldGroup
+          dockerFileLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-visits-service
+          dockerFileName: Dockerfile
+          dockerImageName: docker.${ArtIP}/pet_clinic_visits_service_docker_image
+          dockerImageTag: '${run_number}'
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+            - name: ConfigServerBuildInfo
+            - name: DiscoveryServerBuildInfo
+          outputResources:
+            - name: VisitsServiceDockerImage
+          inputSteps:
+            - name: bld_visits_service
+        execution:
+          onStart:
+            - sed -i "s/docker.artifactory/docker.${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-visits-service/Dockerfile
+            - sed -i "s/artifactory-unified.soleng-us.jfrog.team/${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-visits-service/Dockerfile
+            #- sed -i "s/1.0.0/$previous_backend_ver/g" $res_PetClinicProjectGitRepo_resourcePath/Dockerfile
+          onComplete:
+            - echo $step_env_var2
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: push_visits_service_docker_image
+        type: DockerPush
+        configuration:
+          affinityGroup: bldGroup
+          targetRepository: docker
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputSteps:
+            - name: bld_visits_service_docker_image
+          outputResources:
+            - name: VisitsServiceBuildInfo
+  - name: pet_clinic_vets_service
+    configuration:
+      environmentVariables:
+        readOnly:
+           my_env_var: '1.0.$run_number'
+           ArtIP: $(echo ${int_Artifactory_Amsterdam_url}|awk -F '/' '{print $3}'|awk -F ':' '{print $1}')
+    steps:
+      - name: bld_vets_service
+        type: MvnBuild
+        configuration:
+          sourceLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-vets-service
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          integrations:
+            - name: Artifactory_Amsterdam
+          runtime:
+            type: image
+            image:
+              auto:
+                language: java
+                versions:
+                  - "11"
+        execution:
+          onStart:
+            - javac -version
+            - mvn --version
+            #- add_pipeline_variables previous_backend_ver=${my_env_var}
+            - sed -ie 's/Default-Server/Artifactory_Amsterdam/g' $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-vets-service/mvn-art-config
+            #- sed -ie "s/2.3.1/$my_env_var/g" $res_PetClinicProjectGitRepo_resourcePath/spring-petclinic-customers-service/pom.xml
+          onComplete:
+            - echo $run_var
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: bld_vets_service_docker_image
+        type: DockerBuild
+        configuration:
+          affinityGroup: bldGroup
+          dockerFileLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-vets-service
+          dockerFileName: Dockerfile
+          dockerImageName: docker.${ArtIP}/pet_clinic_vets_service_docker_image
+          dockerImageTag: '${run_number}'
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+            - name: ConfigServerBuildInfo
+            - name: DiscoveryServerBuildInfo
+          outputResources:
+            - name: VetsServiceDockerImage
+          inputSteps:
+            - name: bld_vets_service
+        execution:
+          onStart:
+            - sed -i "s/docker.artifactory/docker.${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-vets-service/Dockerfile
+            - sed -i "s/artifactory-unified.soleng-us.jfrog.team/${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-vets-service/Dockerfile
+            #- sed -i "s/1.0.0/$previous_backend_ver/g" $res_PetClinicProjectGitRepo_resourcePath/Dockerfile
+          onComplete:
+            - echo $step_env_var2
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: push_vets_service_docker_image
+        type: DockerPush
+        configuration:
+          affinityGroup: bldGroup
+          targetRepository: docker
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputSteps:
+            - name: bld_vets_service_docker_image
+          outputResources:
+            - name: VetsServiceBuildInfo
+  - name: pet_clinic_ui_service
+    configuration:
+      environmentVariables:
+        readOnly:
+           my_env_var: '1.0.$run_number'
+           ArtIP: $(echo ${int_Artifactory_Amsterdam_url}|awk -F '/' '{print $3}'|awk -F ':' '{print $1}')
+    steps:
+      - name: bld_ui_service
+        type: MvnBuild
+        configuration:
+          sourceLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-api-gateway
+          mvnCommand: clean install -ntp
+          configFileLocation: .
+          configFileName: mvn-art-config
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+          integrations:
+            - name: Artifactory_Amsterdam
+          runtime:
+            type: image
+            image:
+              auto:
+                language: java
+                versions:
+                  - "11"
+        execution:
+          onStart:
+            - javac -version
+            - mvn --version
+            #- add_pipeline_variables previous_backend_ver=${my_env_var}
+            - sed -ie 's/Default-Server/Artifactory_Amsterdam/g' $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-api-gateway/mvn-art-config
+            #- sed -ie "s/2.3.1/$my_env_var/g" $res_PetClinicProjectGitRepo_resourcePath/spring-petclinic-customers-service/pom.xml
+          onComplete:
+            - echo $run_var
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: bld_ui_service_docker_image
+        type: DockerBuild
+        configuration:
+          affinityGroup: bldGroup
+          dockerFileLocation: Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-api-gateway
+          dockerFileName: Dockerfile
+          dockerImageName: docker.${ArtIP}/pet_clinic_ui_service_docker_image
+          dockerImageTag: '${run_number}'
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+            - name: ConfigServerBuildInfo
+            - name: DiscoveryServerBuildInfo
+          outputResources:
+            - name: UIServiceDockerImage
+          inputSteps:
+            - name: bld_ui_service
+        execution:
+          onStart:
+            - sed -i "s/docker.artifactory/docker.${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-api-gateway/Dockerfile
+            - sed -i "s/artifactory-unified.soleng-us.jfrog.team/${ArtIP}/" $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/spring-petclinic-microservices/spring-petclinic-api-gateway/Dockerfile
+            #- sed -i "s/1.0.0/$previous_backend_ver/g" $res_PetClinicProjectGitRepo_resourcePath/Dockerfile
+          onComplete:
+            - echo $step_env_var2
+            - echo "Running $pipeline_name | $step_name on node ID $step_node_id"
+      - name: push_ui_service_docker_image
+        type: DockerPush
+        configuration:
+          affinityGroup: bldGroup
+          targetRepository: docker
+          forceXrayScan: false
+          autoPublishBuildInfo: true
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputSteps:
+            - name: bld_ui_service_docker_image
+          outputResources:
+            - name: UIServiceBuildInfo
+  - name: pet_clinic_app_helm_deploy
+    steps:
+      - name: helm_build
+        type: HelmPublish
+        configuration:
+          chartPath: Samples/pet-clinic-project/pet-clinic/
+          autoPublishBuildInfo: true        
+          inputResources:
+            - name: PetClinicProjectGitRepo
+              trigger: false
+            #- name: myBuildInfo
+          outputResources:
+            - name: PetClinicHelmChart
+            - name: PetClinicHelmBuildInfo
+        execution:
+          onStart:
+            - pushd $res_PetClinicProjectGitRepo_resourcePath/Samples/pet-clinic-project/pet-clinic
+            #- add_pipeline_variables triggerBuildInfoName="${res_myBuildInfo_buildName}"
+            #- add_pipeline_variables triggerBuildInfoNumber="${res_myBuildInfo_buildNumber}"
+            #- sed -i "s/docker.artifactory/docker.artifactory-unified.soleng-us.jfrog.team/" values.yaml
+            #- sed -i "s/docker-app/swampup_docker_app_demo/" values.yaml
+            - sed -i "s/0.1.0/0.1.$run_number/g" Chart.yaml
+            #- sed -i "s/latest/1.1.1/" values.yaml
+            #- sed -i "s/1.1.1/$triggerBuildInfoNumber/" values.yaml
+      - name: promote_helm_chart
+        type: PromoteBuild
+        configuration:
+          targetRepository: helm-prod-local
+          integrations:
+            - name: Artifactory_Amsterdam
+          inputResources:
+            - name: PetClinicHelmBuildInfo
+            - name: PetClinicHelmChart
+          outputResources:
+            - name: PetClinicPromotedHelmBuildInfo
+            - name: PetClinicPromotedHelmChart
+      - name: deploy_helm
+        type: HelmDeploy
+        configuration:
+          releaseName: pet-clinic
+          chartPath:   .
+          integrations:
+            - name: K8S_SA #SolEngUS
+          inputResources:
+            - name: PetClinicPromotedHelmChart
+          flags: '--namespace default --force'
+          valueFilePaths:
+            - values.yaml
+        execution:
+          onStart:
+            #- helm init --service-account pet-clinic --namespace default
+            - add_run_variables config_server_running_pod_name="$(kubectl get pods | awk '/config-server/{print $1}')"
+            - if [ ! -z "$config_server_running_pod_name" ]; then kubectl delete pods $config_server_running_pod_name; fi
+            - add_run_variables config_server_deployment_name="$(kubectl get deployments | awk '/config-server/{print $1}')"
+            - echo "config_server_deployment name is $config_server_deployment_name"
+            - if [ "$config_server_deployment_name" == "config-server" ]; then kubectl delete deployment config-server; fi
+            - if [ "$config_server_deployment_name" == "config-server" ]; then sleep 20; fi
+            - add_run_variables discovery_server_running_pod_name="$(kubectl get pods | awk '/discovery-server/{print $1}')"
+            - if [ ! -z "$discovery_server_running_pod_name" ]; then kubectl delete pods $discovery_server_running_pod_name; fi
+            - add_run_variables discovery_server_deployment_name="$(kubectl get deployments | awk '/discovery-server/{print $1}')"
+            - echo "discovery_server_deployment name is $discovery_server_deployment_name"
+            - if [ "$discovery_server_deployment_name" == "discovery-server" ]; then kubectl delete deployment discovery-server; fi
+            - if [ "$discovery_server_deployment_name" == "discovery-server" ]; then sleep 20; fi
+            - add_run_variables ui_server_running_pod_name="$(kubectl get pods | awk '/ui-server/{print $1}')"
+            - if [ ! -z "$ui_server_running_pod_name" ]; then kubectl delete pods $ui_server_running_pod_name; fi
+            - add_run_variables ui_server_deployment_name="$(kubectl get deployments | awk '/ui-server/{print $1}')"
+            - echo "ui_server_deployment name is $ui_server_deployment_name"
+            - if [ "$ui_server_deployment_name" == "ui-server" ]; then kubectl delete deployment ui-server; fi
+            - if [ "$ui_server_deployment_name" == "ui-server" ]; then sleep 20; fi
+            - add_run_variables customers_server_running_pod_name="$(kubectl get pods | awk '/customers-server/{print $1}')"
+            - if [ ! -z "$customers_server_running_pod_name" ]; then kubectl delete pods $customers_server_running_pod_name; fi
+            - add_run_variables customers_server_deployment_name="$(kubectl get deployments | awk '/customers-service/{print $1}')"
+            - echo "customers_server_deployment name is $customers_server_deployment_name"
+            - if [ "$customers_server_deployment_name" == "customers-server" ]; then kubectl delete deployment customers-service; fi
+            - if [ "$customers_server_deployment_name" == "customers-server" ]; then sleep 20; fi
+          onSuccess:
+            - kubectl get pods --namespace default
+          onComplete: #always
+            - sleep 30
+            - kubectl get pods
+            - kubectl get pods --no-headers=true | awk '/ui-server/{print $1}'
+            - add_run_variables pod_name="$(kubectl get pods --no-headers=true | awk '/ui-server/{print $1}')"
+            - add_run_variables pod_ip="$(kubectl describe pod $pod_name | grep "IP:" | awk '{print $2}')"
+            - echo "pod name is $pod_name and pod ip is $pod_ip"
+      - name: test_docker_app
+        type: Bash
+        configuration:
+          inputSteps:
+            - name: deploy_helm
+          integrations:
+            - name: ArtifactoryUnified
+        execution:
+          onStart:
+            - echo "testing docker application" #$latest_docker_ver
+          onExecute:
+            #- PAGE=$(curl -s "http://localhost:8088/index.html" | tr '[:upper:]' '[:lower:]')
+            #- if [[ $PAGE =~ "swampup" ]]; then echo "swampup found" fi
+            - if curl -Is "http://$pod_ip:8080/index.html"; then add_run_variables dockerAppStatus="pass"; else add_run_variables dockerAppStatus="fail"; fi
+            - if curl -Is "http://$pod_ip:8080/index.html"; then add_run_variables docker_promotion_repo=docker-prod-local; else add_run_variables docker_promotion_repo=docker-archive-local; fi
+          onComplete: #always
+            - echo "pet clinic image status is $dockerAppStatus"

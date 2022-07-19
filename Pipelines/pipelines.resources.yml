@@ -1,0 +1,114 @@
+resources:
+  - name: demo_gitRepo
+    type: GitRepo
+    configuration:
+      path: jfrog/SolEngDemo
+      gitProvider: Github_SolEng
+  - name: dockerBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline_base_image
+      buildNumber: 1
+  - name: dockerBuildInfoScaned
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline_base_image
+      buildNumber: 1
+  - name: dockerPromotedBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline_base_image
+      buildNumber: 1
+  - name: gradleBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-1-java
+      buildNumber: 1
+  - name: gradleBuildInfoPromoted
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-1-java
+      buildNumber: 1
+  - name: NpmBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-2-npm
+      buildNumber: 1
+  - name: NpmBuildInfoPromoted
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-2-npm
+      buildNumber: 1
+  - name: frameworkGenericFileSpec
+    type: FileSpec
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      pattern: tomcat-local/(*).tar.gz
+      target: './{1}.tar.gz'
+      flat: true
+  - name: dockerFrameworkBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-3-base_image
+      buildNumber: 1
+  - name: javaAppFileSpec
+    type: FileSpec
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      pattern: gradle-release-local/org/jfrog/example/gradle/webservice/1.1.2/*.war
+      target: war/webservice.war
+      flat: true
+  - name: dockerFrameworkBuildInfoPromoted
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-3-base_image
+      buildNumber: 1
+  - name: dockerApplBuildInfo
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-4-app_image
+      buildNumber: 1
+  - name: dockerApplBuildInfoPromoted
+    type: BuildInfo
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      buildName: pipeline-step-4-app_image
+      buildNumber: 1
+  - name: getDockerAppImage
+    type: Aql
+    configuration:
+      sourceArtifactory: ArtifactoryHA
+      query: 'items.find({"repo": "docker-prod-local","path": "jfrog-docker-app/19"})'
+  - name: releaseBundle_demo
+    type: ReleaseBundle
+    configuration:
+      sourceDistribution: DistributionCluster
+      name: demo-app
+      version: v1.0.0
+      isSigned: false
+  - name: signedBundle_demo
+    type: ReleaseBundle
+    configuration:
+      sourceDistribution: DistributionCluster
+      name: demo-app
+      version: v1.0.0
+      isSigned: true
+  - name: distributionRules_demo
+    type: DistributionRule
+    configuration:
+      sourceDistribution: DistributionCluster
+      serviceName: "Edge*"
+      siteName: "*"
+      cityName: "*"
+      countryCodes:
+         - "*"

@@ -1,0 +1,29 @@
+#resources:
+#  - name: demo_backend_gitRepo
+#    type: GitRepo
+#    configuration:
+#      path: jfrog/SolEngDemo
+#      gitProvider: Github_SolEng
+#  - name: demo_frontend_gitRepo
+#    type: GitRepo
+#    configuration:
+#      path: jfrog/SolEngDemo
+#      gitProvider: Github_SolEng
+#  - name: dockerBuildInfo
+#    type: BuildInfo
+#    configuration:
+#      sourceArtifactory: ArtifactoryStandalone
+#      buildName: pipeline_base_image
+#      buildNumber: 1
+#  - name: dockerBuildInfoScaned
+#    type: BuildInfo
+#    configuration:
+#      sourceArtifactory: ArtifactoryStandalone
+#      buildName: pipeline_base_image
+#      buildNumber: 1
+#  - name: dockerPromotedBuildInfo
+#    type: BuildInfo
+#    configuration:
+#      sourceArtifactory: ArtifactoryStandalone
+#      buildName: pipeline_base_image
+#      buildNumber: 1
