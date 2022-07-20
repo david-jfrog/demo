@@ -3,7 +3,7 @@ resources:
     type: GitRepo
     configuration:
       gitProvider: davidw
-      path: david-jfrog/SwampUp2022
+      path: david-jfrog/demo
       branches:
         include: main
   - name: dwBuildInfo
