@@ -1,12 +1,12 @@
 resources:
-  - name: myGitRepo
+  - name: dwGitRepo
     type: GitRepo
     configuration:
       gitProvider: Github_SolEng
       path: jfrog/SolEngDemo
       branches:
         include: master
-  - name: myBuildInfo
+  - name: dwBuildInfo
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
@@ -17,26 +17,26 @@ pipelines:
     configuration:
       environmentVariables:
         readOnly:
-          my_env_var: "hello"
+          dw_env_var: "hello"
     steps:
       - name: step_1
         type: Bash
         configuration:
           inputResources:
-            - name: myGitRepo
+            - name: dwGitRepo
           outputResources:
-            - name: myBuildInfo
+            - name: dwBuildInfo
         execution:
           onExecute:
-            - echo $my_env_var
+            - echo $dw_env_var
             - if [ -z $app_version ]; then add_pipeline_variables app_version=1.0.0; else app_version=$(bump_semver $app_version minor); fi
-            - write_output myBuildInfo "buildNumber=$app_version"
+            - write_output dwBuildInfo "buildNumber=$app_version"
             - add_run_variables run_var="hello"
       - name: step_2
         type: Bash
         configuration:
           inputResources:
-            - name: myBuildInfo
+            - name: dwBuildInfo
           runtime:
             type: image
             image:
@@ -46,7 +46,7 @@ pipelines:
         execution:
           onExecute:
             - echo $run_var
-            - echo $res_myBuildInfo_buildNumber
+            - echo $res_dwBuildInfo_buildNumber
 
       - name: step_3
         type: Bash
@@ -77,4 +77,4 @@ pipelines:
             - name: Github_SolEng
         execution:
           onExecute:
-            - 'curl -H "Authorization: token ${int_my_github_token}" ${int_my_github_url}/rate_limit'
+            - 'curl -H "Authorization: token ${int_dw_github_token}" ${int_dw_github_url}/rate_limit'
