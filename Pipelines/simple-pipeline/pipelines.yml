@@ -13,7 +13,7 @@ resources:
       buildName: SampleApp
       buildNumber: 1
 pipelines:
-  - name: basic_pipeline
+  - name: dw_basic_pipeline
     configuration:
       environmentVariables:
         readOnly:
