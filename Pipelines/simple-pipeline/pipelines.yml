@@ -2,10 +2,10 @@ resources:
   - name: dwGitRepo
     type: GitRepo
     configuration:
-      gitProvider: davidw
-      path: david-jfrog/demo
+      gitProvider: Github_SolEng
+      path: jfrog/SolEngDemo
       branches:
-        include: main
+        include: master
   - name: dwBuildInfo
     type: BuildInfo
     configuration:
