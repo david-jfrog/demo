@@ -5,7 +5,7 @@ resources:
       gitProvider: davidw
       path: david-jfrog/demo
       branches:
-        include: master
+        include: main
   - name: dwBuildInfo
     type: BuildInfo
     configuration:
