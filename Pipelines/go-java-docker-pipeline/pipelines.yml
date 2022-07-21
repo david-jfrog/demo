@@ -1,68 +1,68 @@
 resources:
-  - name: soleng_gitRepo
+  - name: dw_gitRepo
     type: GitRepo
     configuration:
-      path: jfrog/SolEngDemo
-      gitProvider: Github_SolEng
+      path: david-jfrog/SwampUp2022
+      gitProvider: davidw
       buildOn:
         commit: false
-  - name: gosvc_build_info
+  - name: dw_gosvc_build_info
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
       buildName: svc_build
       buildNumber: 1
 
-  - name: gosvc_promoted_build_info
+  - name: dw_gosvc_promoted_build_info
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
       buildName: svc_build
       buildNumber: 1
 
-  - name: appl_build_info_output
+  - name: dw_appl_build_info_output
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
       buildName: backend_build
       buildNumber: 1
 
-  - name: dockerBuildInfo
+  - name: dw_dockerBuildInfo
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
       buildName: backend_build
       buildNumber: 1
 
-  - name: appl_build_info
+  - name: dw_appl_build_info
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
       buildName: backend_build
       buildNumber: 1
 
-  - name: appl_promoted_build_info
+  - name: dw_appl_promoted_build_info
     type: BuildInfo
     configuration:
       sourceArtifactory: ArtifactoryUnified
       buildName: backend_build
       buildNumber: 1
 
-  - name: release_bundle
+  - name: dw_release_bundle
     type: ReleaseBundle
     configuration:
       sourceDistribution: Distribution
-      name: demo_rb
+      name: dw_demo_rb
       version: v1.0.0
 
-  - name: signed_bundle
+  - name: dw_signed_bundle
     type: ReleaseBundle
     configuration:
       sourceDistribution: Distribution
-      name: demo_rb
+      name: dw_demo_rb
       version: v1.0.0
 
-  - name: distribution_rules
+  - name: dw_distribution_rules
     type: DistributionRule
     configuration:
       sourceDistribution: Distribution
@@ -80,7 +80,7 @@ resources:
   #       - 167.71.157.57
 
 pipelines:
-  - name: demo_gosvc
+  - name: dw_demo_gosvc
     steps:
       - name: bld_svc
         type: DockerBuild
@@ -90,7 +90,7 @@ pipelines:
           dockerImageName: docker.artifactory-unified.soleng-us.jfrog.team/gosvc
           dockerImageTag: ${run_number}
           inputResources:
-            - name: soleng_gitRepo
+            - name: dw_gitRepo
           integrations:
             - name: ArtifactoryUnified
 
@@ -105,7 +105,7 @@ pipelines:
           inputSteps:
             - name: bld_svc
           outputResources:
-            - name: gosvc_build_info
+            - name: dw_gosvc_build_info
             
       - name: promote_svc_build
         type: PromoteBuild
@@ -114,11 +114,11 @@ pipelines:
           integrations:
             - name: ArtifactoryUnified
           inputResources:
-            - name: gosvc_build_info
+            - name: dw_gosvc_build_info
           outputResources:
-            - name: gosvc_promoted_build_info
+            - name: dw_gosvc_promoted_build_info
 
-  - name: demo_application
+  - name: dw_demo_application
     steps:
       - name: bld_backend
         type: MvnBuild
@@ -128,7 +128,7 @@ pipelines:
           configFileLocation: .
           configFileName: mvn-art-config
           inputResources:
-            - name: soleng_gitRepo
+            - name: dw_gitRepo
           integrations:
             - name: ArtifactoryUnified
           runtime:
@@ -142,7 +142,7 @@ pipelines:
           onStart:
             - javac -version
             - mvn --version
-            - sed -ie 's/Default-Server/ArtifactoryUnified/g' $res_soleng_gitRepo_resourcePath/Pipelines/go-java-docker-pipeline/java-backend-service/mvn-art-config
+            - sed -ie 's/Default-Server/ArtifactoryUnified/g' $res_dw_gitRepo_resourcePath/Pipelines/go-java-docker-pipeline/java-backend-service/mvn-art-config
 
       - name: bld_frontend
         type: NpmBuild
@@ -151,7 +151,7 @@ pipelines:
           sourceLocation: Pipelines/go-java-docker-pipeline/npm-frontend-service
           repositoryName: npm
           inputResources:
-            - name: soleng_gitRepo
+            - name: dw_gitRepo
           integrations:
             - name: ArtifactoryUnified
 
@@ -174,7 +174,7 @@ pipelines:
             dockerImageName: docker.artifactory-unified.soleng-us.jfrog.team/pipeline_app_demo
             dockerImageTag: '${run_number}'
           inputResources:
-            - name: soleng_gitRepo
+            - name: dw_gitRepo
               trigger: false
           inputSteps:
             - name: bld_backend
@@ -185,7 +185,7 @@ pipelines:
           onStart:
             - rm -rf $run_dir/workspace/jfrog
             - retry_command jfrog rt config --url $int_ArtifactoryUnified_url --user $int_ArtifactoryUnified_user --apikey $int_ArtifactoryUnified_apikey --interactive=false
-            - pushd $res_soleng_gitRepo_resourcePath/Pipelines/go-java-docker-pipeline
+            - pushd $res_dw_gitRepo_resourcePath/Pipelines/go-java-docker-pipeline
             - add_run_variables buildStepName=${step_name}
             - add_run_variables ${step_name}_buildNumber=${run_number}
             - add_run_variables ${step_name}_buildName=${pipeline_name}
@@ -205,7 +205,7 @@ pipelines:
 #          integrations:
 #            - name: ArtifactoryUnified
 #          inputResources:
-#            - name: soleng_gitRepo
+#            - name: dw_gitRepo
 #          inputSteps:
 #            - name: bld_backend
 #            - name: publish_frontend
@@ -221,7 +221,7 @@ pipelines:
  #         inputSteps:
  #           - name: buildDockerApp
  #         outputResources:
- #           - name: dockerBuildInfo
+ #           - name: dw_dockerBuildInfo
 
       - name: publish_app_build
         type: PublishBuildInfo
@@ -231,7 +231,7 @@ pipelines:
             #- name: pushDockerApp
             - name: build_DockerApp
           outputResources:
-            - name: appl_build_info
+            - name: dw_appl_build_info
 
       - name: promoteDockerApp
         type: PromoteBuild
@@ -240,27 +240,27 @@ pipelines:
           integrations:
             - name: ArtifactoryUnified
           inputResources:
-            - name: appl_build_info
+            - name: dw_appl_build_info
           outputResources:
-            - name: appl_promoted_build_info
+            - name: dw_appl_promoted_build_info
 
   - name: demo_release_mgmt
     steps:
       - name: bundle
         type: CreateReleaseBundle
         configuration:
-          releaseBundleName: demo_rb
+          releaseBundleName: dw_demo_rb
           releaseBundleVersion: v1.0.${run_number}
           dryRun: false
           sign: false
           description: "some random test description"
           inputResources:
-            - name: gosvc_promoted_build_info
+            - name: dw_gosvc_promoted_build_info
               trigger: false
-            - name: appl_promoted_build_info
+            - name: dw_appl_promoted_build_info
               trigger: false
           outputResources:
-            - name: release_bundle
+            - name: dw_release_bundle
           releaseNotes:
             syntax: markdown
             content: |
@@ -272,14 +272,14 @@ pipelines:
         type: SignReleaseBundle
         configuration:
           inputResources:
-            - name: release_bundle
+            - name: dw_release_bundle
           outputResources:
-            - name: signed_bundle
+            - name: dw_signed_bundle
 
       - name: distribute
         type: DistributeReleaseBundle
         configuration:
           dryRun: false
           inputResources:
-            - name: signed_bundle
-            - name: distribution_rules
+            - name: dw_signed_bundle
+            - name: dw_distribution_rules
