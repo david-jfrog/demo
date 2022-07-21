@@ -5,7 +5,7 @@ resources:
       path: david-jfrog/SwampUp2022
       gitProvider: davidw
       buildOn:
-        commit: false
+        commit: true
   - name: dw_gosvc_build_info
     type: BuildInfo
     configuration:
