@@ -77,4 +77,4 @@ pipelines:
             - name: Github_SolEng
         execution:
           onExecute:
-            - 'curl -H "Authorization: token ${int_dw_github_token}" ${int_dw_github_url}/rate_limit'
+            - 'curl -H "Authorization: token ${int_davidw_token}" ${int_davidw_url}/rate_limit'
