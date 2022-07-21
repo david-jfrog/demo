@@ -244,7 +244,7 @@ pipelines:
           outputResources:
             - name: dw_appl_promoted_build_info
 
-  - name: demo_release_mgmt
+  - name: dw_demo_release_mgmt
     steps:
       - name: bundle
         type: CreateReleaseBundle
